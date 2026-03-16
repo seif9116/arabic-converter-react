@@ -62,8 +62,6 @@ const ArabicAudioConverter: React.FC = () => {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chunkSize = 120; // 2 minutes
-  const apiKey = process.env.REACT_APP_OPENAI_API_KEY || '';
-  const googleApiKey = process.env.REACT_APP_GOOGLE_CLOUD_API_KEY || '';
 
   const isValidMediaFile = (file: File): boolean => {
     console.log('File validation - Name:', file.name, 'Type:', file.type, 'Size:', file.size);
@@ -341,9 +339,8 @@ const ArabicAudioConverter: React.FC = () => {
     formData.append('file', chunk.blob, `chunk_${chunkIndex}.wav`);
     formData.append('model', 'whisper-1');
 
-    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    const response = await fetch('/api/transcribe', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${apiKey}` },
       body: formData
     });
 
@@ -359,11 +356,10 @@ const ArabicAudioConverter: React.FC = () => {
 
   const translateChunk = async (text: string, chunkIndex: number): Promise<string> => {
     console.log(`🔄 Translating chunk ${chunkIndex + 1}...`);
-    const url = `https://translation.googleapis.com/language/translate/v2?key=${googleApiKey}&q=${encodeURI(text)}&target=en&source=ar`;
-
-    const response = await fetch(url, {
+    const response = await fetch('/api/translate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, target: 'en', source: 'ar' }),
     });
 
     if (!response.ok) {
@@ -384,10 +380,6 @@ const ArabicAudioConverter: React.FC = () => {
     console.log(`💾 Size: ${chunkSizeMB} MB`);
     
     try {
-      if (!apiKey || !googleApiKey) {
-        throw new Error('API key not found. Please check your environment variables.');
-      }
-      
       setCurrentStatus(`Transcribing Arabic audio for chunk ${chunkIndex + 1}...`);
       const arabicText = await transcribeChunk(chunk, chunkIndex);
       let englishText = '';
@@ -474,21 +466,14 @@ const ArabicAudioConverter: React.FC = () => {
   const textToSpeechBlob = async (text: string): Promise<Blob> => {
     console.log(`🎤 Converting text to speech: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`);
     
-    if (!apiKey) {
-      throw new Error('OpenAI API key not found. Please check your environment variables.');
-    }
-    
-    const response = await fetch('https://api.openai.com/v1/audio/speech', {
+    const response = await fetch('/api/tts', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'tts-1-hd',
         input: text,
         voice: 'onyx',
-        response_format: 'mp3',
         speed: 1.0
       })
     });
